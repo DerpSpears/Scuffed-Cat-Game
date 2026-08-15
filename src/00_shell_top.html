@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#20303A">
+<title>Cat Tower</title>
+<style>
+/* Fonts are inlined as base64 woff2 by build.py, so the single file works
+   offline with no network request. */
+/*FONTS*/
+/* =====================================================================
+   Cat Tower UI. Storybook-arcade: warm paper, brown ink, chunky borders,
+   hard offset shadows, nothing translucent, nothing blurred.
+   ===================================================================== */
+:root{
+  --paper:#F6E7C5; --paper2:#EBD6A9; --cream:#FFF9EC; --shade:#E2CB9C;
+  --ink:#33251A; --ink2:#7C6547; --ink3:#A8906C;
+  --rose:#D4566A; --leaf:#4F8F5B; --sun:#E5A038; --sky:#4C84B6; --plum:#7E5DA6;
+  /* aliases the game code assigns directly to inline styles */
+  --green:#4F8F5B; --orange:#E5A038; --red:#D4566A; --blue:#4C84B6; --gold:#C98F26;
+  --display:"Fredoka","Baloo 2","Chalkboard SE","Comic Sans MS",Verdana,sans-serif;
+  --body:"Quicksand","Nunito",Verdana,Geneva,sans-serif;
+  --tag:3px; --sh:4px 4px 0 var(--ink); --shs:3px 3px 0 var(--ink);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;background:#20303A;color:var(--ink);
+  font-family:var(--body);font-weight:600;overflow:hidden;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent}
+/* dvh keeps the layout honest when mobile browser chrome slides away */
+@supports (height:100dvh){html,body{height:100dvh}}
+#c{display:block;width:100%;height:100%;touch-action:none}
+.hidden{display:none !important}
+
+/* paper surface used by every card and tag */
+.pap{
+  background:
+    repeating-linear-gradient(180deg,rgba(255,255,255,.35) 0 2px,rgba(0,0,0,0) 2px 5px),
+    var(--paper);
+  border:var(--tag) solid var(--ink);
+}
+
+/* ------------------------------- HUD -------------------------------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+.tag{
+  background:
+    repeating-linear-gradient(180deg,rgba(255,255,255,.35) 0 2px,rgba(0,0,0,0) 2px 5px),
+    var(--paper);
+  border:var(--tag) solid var(--ink);border-radius:13px;padding:7px 13px;box-shadow:var(--shs);
+}
+.hud-top{position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:flex-start}
+.hud-top .tag:nth-child(1){transform:rotate(-1.4deg)}
+.hud-top .tag:nth-child(2){transform:rotate(.8deg)}
+.hud-top .tag:nth-child(3){transform:rotate(-.6deg)}
+.floorno{font-family:var(--display);font-weight:800;font-size:13px;color:var(--ink2);line-height:1}
+.floorname{font-family:var(--display);font-weight:800;font-size:19px;line-height:1.15;white-space:nowrap}
+.stat{text-align:center;min-width:84px}
+.stat .cap{font-size:11.5px;color:var(--ink2);line-height:1.1}
+.stat .num{font-family:var(--display);font-weight:800;font-size:23px;line-height:1.05}
+.stat .num.green{color:var(--leaf)}
+.stat .num.gold{color:var(--gold)}
+.stat .num.time{font-variant-numeric:tabular-nums;min-width:66px;display:inline-block}
+
+.hud-left{position:absolute;left:18px;bottom:18px;display:flex;flex-direction:column;gap:9px;width:236px}
+.hud-left .tag{transform:rotate(-.8deg)}
+.hprow{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.hprow .k{font-family:var(--display);font-weight:800;font-size:14px}
+.hprow .v{font-size:12.5px;color:var(--ink2)}
+.hpbar{height:16px;border:2px solid var(--ink);border-radius:9px;background:var(--shade);overflow:hidden;position:relative}
+#hpfill{height:100%;width:100%;background:var(--leaf);transition:width .18s ease}
+.hpbar::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,rgba(51,37,26,.30) 0 2px,rgba(0,0,0,0) 2px 15px)}
+#buffs{display:flex;gap:7px;flex-wrap:wrap}
+.chip{font-family:var(--display);font-weight:800;font-size:12.5px;padding:5px 11px;border-radius:999px;
+  border:2px solid var(--ink);background:var(--cream);box-shadow:2px 2px 0 var(--ink);color:var(--ink)}
+.chip.speed{background:#CFE2F4}
+.chip.invin{background:#F7E3B4}
+
+#prompt{position:absolute;left:50%;bottom:112px;transform:translateX(-50%) rotate(-.5deg);text-align:center;
+  font-family:var(--display);font-weight:800;font-size:16px;padding:9px 17px;border-radius:13px;
+  background:var(--cream);border:var(--tag) solid var(--ink);box-shadow:var(--shs);white-space:nowrap}
+#prompt .key{display:inline-block;min-width:24px;padding:2px 8px;margin-right:8px;border-radius:7px;
+  background:var(--ink);color:var(--paper);font-size:13px}
+#prompt.warn{background:#F6D3CE}
+#prompt.warn .key{background:var(--rose)}
+
+#toasts{position:absolute;right:18px;top:18px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;max-width:290px}
+.toast{font-size:13px;font-weight:700;padding:9px 13px;border-radius:12px;background:var(--cream);
+  border:var(--tag) solid var(--ink);box-shadow:var(--shs);animation:pop .22s ease-out}
+.toast:nth-child(even){transform:rotate(1deg)}
+.toast:nth-child(odd){transform:rotate(-1deg)}
+.toast.gold{background:#F7E3B4}
+.toast.green{background:#D5E8D4}
+.toast.red{background:#F6D3CE}
+.toast.blue{background:#CFE2F4}
+@keyframes pop{from{opacity:0;transform:translateY(-7px) scale(.96)}to{opacity:1}}
+
+.help{position:absolute;right:18px;bottom:18px;max-width:250px;text-align:right;font-size:12px;
+  color:var(--ink2);line-height:1.75;background:var(--paper);border:2px solid var(--ink);
+  border-radius:12px;padding:8px 12px;box-shadow:2px 2px 0 var(--ink);transform:rotate(1.2deg)}
+.help b{font-family:var(--display);font-weight:800;color:var(--ink)}
+
+#flash{position:fixed;inset:0;background:var(--rose);opacity:0;pointer-events:none;z-index:6;transition:opacity .12s linear}
+
+#banner{position:fixed;top:30%;left:0;right:0;text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity .4s ease}
+#banner .inner{display:inline-block;padding:14px 30px;border-radius:18px;transform:rotate(-1deg);
+  background:var(--paper);border:4px solid var(--ink);box-shadow:7px 7px 0 var(--ink)}
+#bannerEyebrow{font-family:var(--display);font-weight:700;font-size:14px;color:var(--ink2)}
+#bannerTitle{font-family:var(--display);font-weight:800;font-size:40px;line-height:1.1;margin-top:2px}
+#bannerSub{font-size:14px;color:var(--ink2);margin-top:5px}
+
+/* ----------------------------- overlays ----------------------------- */
+.overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:26px;
+  background:rgba(28,20,14,.62)}
+.overlay.airy{background:rgba(28,20,14,.22)}
+.card{position:relative;z-index:1;width:min(560px,100%);max-height:100%;overflow:auto;border-radius:20px;padding:30px 32px;
+  background:
+    repeating-linear-gradient(180deg,rgba(255,255,255,.32) 0 2px,rgba(0,0,0,0) 2px 5px),
+    var(--paper);
+  border:4px solid var(--ink);box-shadow:9px 9px 0 var(--ink)}
+.kicker{font-family:var(--display);font-weight:700;font-size:15px;color:var(--ink2)}
+.card h1{font-family:var(--display);font-weight:800;font-size:48px;line-height:1.02;margin:2px 0 0}
+.card h2{font-family:var(--display);font-weight:800;font-size:29px;line-height:1.1;margin:2px 0 0}
+.card p.sub{font-size:15px;line-height:1.55;margin-top:11px;color:#4A3728}
+.card p.sub i{color:var(--rose);font-style:italic}
+.rule{height:0;border-top:3px dashed var(--ink3);margin:20px 0 0}
+
+.paw{display:inline-block;width:34px;height:34px;vertical-align:-5px;margin-right:10px;color:var(--rose)}
+
+/* ------------------------------ clouds ------------------------------ */
+/* hand-drawn paper clouds, inline SVG so the outline never breaks */
+.sky{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.sky i{position:absolute;display:block;background-repeat:no-repeat;background-size:100% 100%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 112'%3E%3Cpath d='M52 99 Q22 99 22 76 Q22 55 44 53 Q48 26 76 24 Q100 22 110 42 Q130 31 144 48 Q172 48 178 68 Q184 96 152 99 Z' fill='%23FFF9EC' stroke='%2333251A' stroke-width='7' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E");
+  animation:drift linear infinite}
+.sky i:nth-child(1){width:210px;height:118px;top:8%;animation-duration:78s;animation-delay:-12s}
+.sky i:nth-child(2){width:140px;height:78px;top:31%;animation-duration:96s;animation-delay:-58s;opacity:.9}
+.sky i:nth-child(3){width:262px;height:147px;top:57%;animation-duration:64s;animation-delay:-30s;opacity:.82}
+.sky i:nth-child(4){width:118px;height:66px;top:79%;animation-duration:110s;animation-delay:-84s;opacity:.72}
+.sky i:nth-child(5){width:172px;height:96px;top:2%;animation-duration:88s;animation-delay:-70s;opacity:.62}
+@keyframes drift{from{transform:translateX(-32vw)}to{transform:translateX(124vw)}}
+@media (prefers-reduced-motion:reduce){.sky i{animation:none;left:14%}}
+
+/* -------------------- roster of cats you petted --------------------- */
+#winRoster{margin-top:15px;max-height:150px;overflow:auto;padding-right:4px}
+.rgroup{margin-bottom:11px}
+.rgroup:last-child{margin-bottom:0}
+.rhead{font-family:var(--display);font-weight:700;font-size:13.5px;color:var(--ink2);margin-bottom:6px}
+.rhead span{display:inline-block;background:var(--paper2);border:2px solid var(--ink);border-radius:999px;
+  padding:0 8px;font-size:11.5px;color:var(--ink);margin-left:5px}
+.rnames{display:flex;flex-wrap:wrap;gap:6px}
+.cchip{font-family:var(--display);font-weight:700;font-size:12.5px;padding:4px 11px;border-radius:999px;
+  border:2px solid var(--ink);background:var(--cream);box-shadow:2px 2px 0 var(--ink)}
+.cchip.house{background:#FDEFCF}
+.cchip.bobcat{background:#F2DCBB}
+.cchip.tiger{background:#F8D6A0}
+.cchip.lion{background:#EFCE8A}
+
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:9px 22px;margin:20px 0 2px}
+.keys div{font-size:13.5px;color:#4A3728;display:flex;gap:9px;align-items:center}
+.kbd{display:inline-block;min-width:27px;text-align:center;padding:3px 8px;border-radius:7px;
+  background:var(--cream);border:2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+  font-family:var(--display);font-weight:800;font-size:12.5px;color:var(--ink)}
+
+.btn{pointer-events:auto;cursor:pointer;font-family:var(--display);font-size:17px;font-weight:800;
+  color:var(--ink);background:var(--cream);border:var(--tag) solid var(--ink);border-radius:13px;
+  padding:11px 20px;min-height:46px;box-shadow:var(--sh);transition:transform .08s ease,box-shadow .08s ease}
+.btn:hover{background:#FFFFFF}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn.primary{background:var(--sun)}
+.btn.primary:hover{background:#F0B255}
+.btn:disabled{cursor:not-allowed;background:var(--shade);color:var(--ink3);box-shadow:2px 2px 0 var(--ink3);border-color:var(--ink3)}
+.btn:disabled:active{transform:none}
+.row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap}
+
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
+.statgrid>div{background:var(--cream);border:var(--tag) solid var(--ink);border-radius:13px;padding:11px 13px;box-shadow:var(--shs)}
+.statgrid .k{font-size:12px;color:var(--ink2);line-height:1.2}
+.statgrid .v{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.1;margin-top:1px}
+/* the win card also carries the roster, so its stats sit on one tight row */
+#ovWin .card h1{font-size:41px}
+#ovWin .statgrid{grid-template-columns:repeat(4,1fr);gap:9px;margin-top:15px}
+#ovWin .statgrid>div{padding:9px 10px}
+#ovWin .statgrid .k{font-size:11px}
+#ovWin .statgrid .v{font-size:21px}
+#ovWin .ngbox{margin-top:15px;padding:13px 14px}
+#ovWin .row{margin-top:15px}
+
+/* --------------------------- new game plus -------------------------- */
+.ngbox{margin-top:20px;padding:15px 16px;border-radius:15px;background:#F3E0BA;
+  border:var(--tag) dashed var(--ink);}
+.ngtop{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.nglabel{font-family:var(--display);font-weight:800;font-size:17px}
+.ngnote{font-size:12.5px;color:var(--ink2);margin-top:7px}
+.ngnote b{font-family:var(--display);font-weight:800;color:var(--ink)}
+.stepper{display:flex;align-items:center;gap:9px}
+.sbtn{pointer-events:auto;cursor:pointer;width:36px;height:36px;flex:0 0 36px;border-radius:10px;
+  background:var(--cream);border:var(--tag) solid var(--ink);box-shadow:var(--shs);
+  font-family:var(--display);font-weight:800;font-size:20px;line-height:1;color:var(--ink)}
+.sbtn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.sval{font-family:var(--display);font-weight:800;font-size:15px;min-width:126px;text-align:center}
+
+/* ------------------------------- shop ------------------------------- */
+#shopCard{width:min(680px,100%)}
+/* the shop is the tallest card: trim it so five rows fit a 720px window */
+#shopCard{padding:23px 26px}
+#shopCard h2{font-size:26px}
+#shopCard p.sub{font-size:13.5px;margin-top:8px}
+#shopCard #shopItems{gap:8px;margin-top:14px}
+#shopCard .item{padding:9px 12px}
+#shopCard .item .nm{font-size:16px}
+#shopCard .item .ds{font-size:12px}
+#shopCard .item .lv{font-size:11px;margin-top:2px}
+#shopCard .item .buy{min-height:38px;padding:8px 13px;font-size:14.5px;min-width:98px}
+#shopCard .row{margin-top:15px}
+#shopCard .btn{min-height:42px;padding:10px 18px;font-size:16px}
+.shophead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.wallet{font-family:var(--display);font-weight:800;font-size:16px;color:var(--ink);background:#F7E3B4;
+  border:var(--tag) solid var(--ink);border-radius:999px;padding:8px 16px;white-space:nowrap;box-shadow:var(--shs);transform:rotate(1.5deg)}
+#shopItems{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.item{display:flex;align-items:center;gap:13px;background:var(--cream);border:var(--tag) solid var(--ink);
+  border-radius:14px;padding:11px 13px;box-shadow:var(--shs)}
+.item .idx{width:28px;height:28px;flex:0 0 28px;border-radius:9px;background:var(--paper2);
+  border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:800;font-size:14px;color:var(--ink)}
+.item .txt{flex:1;min-width:0}
+.item .nm{font-family:var(--display);font-weight:800;font-size:17px;line-height:1.15}
+.item .ds{font-size:12.5px;color:var(--ink2);margin-top:1px}
+.item .lv{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.item .buy{min-width:104px;font-size:15px;padding:9px 14px;min-height:40px}
+.item.maxed{background:var(--shade);box-shadow:2px 2px 0 var(--ink3);border-color:var(--ink3)}
+.item.maxed .nm,.item.maxed .ds{color:var(--ink3)}
+
+/* best-time line on the win card */
+.pbline{margin-top:10px;font-size:12.5px;color:var(--ink2)}
+.pbline.pb{color:var(--leaf);font-family:var(--display);font-weight:800;font-size:14px}
+
+/* --------------------- on-screen controls (touch) ------------------- */
+/* Only shown when the game detects a touch device. Same paper and ink as
+   everything else, sized for thumbs, out of the way of the action. */
+#touch{position:absolute;inset:0;pointer-events:none;z-index:6}
+#stick{position:absolute;left:max(14px,env(safe-area-inset-left));
+  bottom:max(14px,env(safe-area-inset-bottom));width:132px;height:132px;border-radius:50%;
+  pointer-events:auto;touch-action:none;background:var(--paper);
+  border:3px solid var(--ink);box-shadow:var(--sh);opacity:.95}
+#stick::after{content:"";position:absolute;inset:15px;border-radius:50%;border:2px dashed var(--ink3)}
+#stickNub{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;
+  border-radius:50%;background:var(--cream);border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink)}
+#tbtns{position:absolute;right:max(14px,env(safe-area-inset-right));
+  bottom:max(14px,env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:9px}
+.tbtn{pointer-events:auto;touch-action:none;cursor:pointer;padding:0;
+  font-family:var(--display);font-weight:800;font-size:15px;color:var(--ink);
+  background:var(--cream);border:3px solid var(--ink);border-radius:50%;
+  box-shadow:var(--sh);width:74px;height:74px}
+.tbtn.pet{width:100px;height:100px;font-size:21px;background:var(--sun)}
+.tbtn.on{background:var(--sun)}
+.tbtn.down{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+#btnPause{position:absolute;right:max(12px,env(safe-area-inset-right));
+  top:max(12px,env(safe-area-inset-top));width:50px;height:50px;font-size:17px;border-radius:14px}
+#btnFinish{position:absolute;left:50%;transform:translateX(-50%);
+  bottom:max(128px,calc(env(safe-area-inset-bottom) + 128px));
+  width:auto;height:52px;border-radius:999px;padding:0 22px;font-size:17px;background:var(--sun)}
+#btnFinish.down{transform:translateX(-50%) translate(3px,3px)}
+/* swap the keyboard legend for the touch legend on phones */
+#touchKeys{display:none}
+body.touch .kb{display:none}
+body.touch #touchKeys{display:grid}
+/* leave room for the pause button in the corner */
+body.touch #toasts{top:70px}
+
+/* ------------------------- phones / small screens ------------------- */
+@media (max-width:640px),(max-height:520px){
+  .overlay{padding:10px}
+  .card{width:100%;padding:16px 15px;border-width:3px;border-radius:16px;
+    box-shadow:6px 6px 0 var(--ink);max-height:100%}
+  .card h1{font-size:27px}
+  .card h2{font-size:20px}
+  .kicker{font-size:11.5px}
+  .card p.sub{font-size:12.5px;line-height:1.45;margin-top:7px}
+  .paw{width:24px;height:24px;margin-right:7px;vertical-align:-3px}
+  .keys{grid-template-columns:1fr;gap:5px;margin:11px 0 0}
+  .keys div{font-size:12px;gap:7px}
+  .kbd{font-size:11px;padding:2px 6px;min-width:22px}
+  .row{margin-top:13px;gap:8px}
+  .btn{font-size:14.5px;padding:9px 13px;min-height:42px}
+  .statgrid{gap:7px;margin-top:11px}
+  .statgrid>div{padding:7px 9px}
+  .statgrid .k{font-size:10px}
+  .statgrid .v{font-size:18px}
+  .ngbox{margin-top:11px;padding:10px 11px}
+  .nglabel{font-size:14px}
+  .ngnote{font-size:11px;margin-top:5px}
+  .stepper{width:100%;justify-content:space-between}
+  .sval{min-width:0;flex:1;font-size:13px}
+  .sbtn{width:32px;height:32px;flex:0 0 32px;font-size:17px}
+  #ovWin .card h1{font-size:25px}
+  #ovWin .statgrid{grid-template-columns:repeat(2,1fr)}
+  #ovWin .statgrid .v{font-size:17px}
+  #winRoster{max-height:23vh;margin-top:11px}
+  .cchip{font-size:11px;padding:3px 8px}
+  .rhead{font-size:12px}
+  .pbline{font-size:11.5px;margin-top:8px}
+  #shopCard{padding:16px 15px}
+  #shopCard h2{font-size:20px}
+  #shopCard #shopItems{gap:6px;margin-top:10px}
+  #shopCard .item{padding:7px 9px;gap:9px}
+  #shopCard .item .nm{font-size:13.5px}
+  #shopCard .item .ds{font-size:11px}
+  #shopCard .item .lv{font-size:10px}
+  #shopCard .item .buy{min-width:78px;min-height:34px;padding:6px 10px;font-size:13px}
+  .item .idx{width:22px;height:22px;flex:0 0 22px;font-size:12px}
+  .wallet{font-size:13px;padding:6px 12px}
+  /* HUD becomes one thin strip along the top, clear of both thumbs */
+  .hud-top{top:8px;left:8px;right:70px;transform:none;justify-content:flex-start;gap:5px;flex-wrap:nowrap}
+  .hud-top .tag{transform:none !important;padding:4px 7px;border-radius:10px;border-width:2px;
+    box-shadow:2px 2px 0 var(--ink);min-width:0}
+  .floorno{font-size:9px}
+  .floorname{font-size:12.5px}
+  .stat{min-width:0}
+  .stat .cap{font-size:8.5px}
+  .stat .num{font-size:14px}
+  .stat .num.time{min-width:52px}
+  .hud-left{left:8px;right:auto;bottom:auto;top:52px;width:142px;gap:5px}
+  .hud-left .tag{transform:none;padding:5px 8px;border-width:2px}
+  .hprow{margin-bottom:4px}
+  .hprow .k{font-size:11px}
+  .hprow .v{font-size:10px}
+  .hpbar{height:10px}
+  .chip{font-size:10.5px;padding:3px 8px}
+  #toasts{top:52px;right:8px;max-width:46vw;gap:5px}
+  .toast{font-size:10.5px;padding:6px 8px;border-width:2px}
+  #prompt{bottom:134px;font-size:12.5px;padding:7px 11px;max-width:calc(100% - 24px);white-space:normal}
+  #prompt .key{font-size:11px;min-width:19px;padding:1px 6px;margin-right:6px}
+  #banner .inner{padding:10px 18px;border-width:3px;box-shadow:5px 5px 0 var(--ink);max-width:88vw}
+  #bannerTitle{font-size:26px}
+  #bannerEyebrow{font-size:11px}
+  #bannerSub{font-size:11.5px}
+  .help{display:none}
+  .item{flex-wrap:wrap}
+  #stick{width:112px;height:112px}
+  #stickNub{width:52px;height:52px;margin:-26px 0 0 -26px}
+  .tbtn{width:62px;height:62px;font-size:13px}
+  .tbtn.pet{width:84px;height:84px;font-size:18px}
+}
+/* landscape phones are short: drop the legends and shrink the pad */
+@media (max-height:430px){
+  .keys,#touchKeys{display:none !important}
+  .card h1{font-size:23px}
+  .card p.sub{font-size:12px}
+  #winRoster{max-height:20vh}
+  #stick{width:96px;height:96px}
+  #stickNub{width:44px;height:44px;margin:-22px 0 0 -22px}
+  .tbtn{width:54px;height:54px;font-size:12px}
+  .tbtn.pet{width:70px;height:70px;font-size:15px}
+  #prompt{bottom:108px}
+  #btnFinish{bottom:96px;height:44px;font-size:15px}
+  /* the shop is the tallest card, so lay it out in two columns and drop
+     the descriptions rather than making it scroll */
+  #shopCard{padding:12px 14px}
+  #shopCard h2{font-size:17px}
+  #shopSub{display:none}
+  #shopCard #shopItems{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  #shopCard .item{padding:5px 8px;gap:7px;flex-wrap:nowrap}
+  #shopCard .item .ds{display:none}
+  #shopCard .item .nm{font-size:12.5px}
+  #shopCard .item .buy{min-width:64px;min-height:30px;font-size:12px;padding:5px 8px}
+  .wallet{font-size:12px;padding:5px 10px}
+  .row{margin-top:9px}
+  .btn{min-height:36px;padding:7px 11px;font-size:14px}
+  .statgrid{gap:6px;margin-top:9px}
+  .statgrid>div{padding:6px 8px}
+  .statgrid .v{font-size:16px}
+  .pbline{margin-top:7px;font-size:11px}
+  /* the victory card carries the most content, so go four stats wide and
+     let the cat roster scroll on its own instead of the whole card */
+  #ovWin .card{padding:12px 14px}
+  #ovWin .card h1{font-size:19px}
+  #ovWin .card p.sub{display:none}
+  #ovWin .statgrid{grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
+  #ovWin .statgrid>div{padding:5px 6px}
+  #ovWin .statgrid .v{font-size:15px}
+  #ovWin .statgrid .k{font-size:9px}
+  #ovWin .row{margin-top:8px;gap:6px}
+  #winRoster{max-height:13vh;margin-top:8px}
+  .rgroup{margin-bottom:4px}
+  .rhead{font-size:11px}
+  .cchip{font-size:10px;padding:2px 6px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="tag"><div class="floorno" id="levelNo">Level 1</div><div class="floorname" id="levelName">The Courtyard</div></div>
+    <div class="tag stat"><div class="cap">petted</div><div class="num green" id="catCount">0 / 6</div></div>
+    <div class="tag stat"><div class="cap">coins</div><div class="num gold" id="coinCount">0</div></div>
+    <div class="tag stat"><div class="cap" id="timeCap">time</div><div class="num time" id="timeCount">0:00.0</div></div>
+  </div>
+  <div class="hud-left">
+    <div class="tag">
+      <div class="hprow"><span class="k">Health</span><span class="v" id="hpText">100 / 100</span></div>
+      <div class="hpbar"><div id="hpfill"></div></div>
+    </div>
+    <div id="buffs"></div>
+  </div>
+  <div id="prompt" class="hidden"></div>
+  <div id="toasts"></div>
+  <div class="help"><b>WASD</b> walk &nbsp; <b>mouse</b> look<br><b>shift</b> run &nbsp; <b>space</b> hop &nbsp; <b>P</b> pet<br><b>esc</b> pause &nbsp; <b>M</b> mute</div>
+  <div id="touch" class="hidden">
+    <div id="stick"><div id="stickNub"></div></div>
+    <div id="tbtns">
+      <button class="tbtn" id="btnRun" type="button">RUN</button>
+      <button class="tbtn" id="btnJump" type="button">HOP</button>
+      <button class="tbtn pet" id="btnPet" type="button">PET</button>
+    </div>
+    <button class="tbtn" id="btnPause" type="button">II</button>
+    <button class="tbtn hidden" id="btnFinish" type="button">FINISH</button>
+  </div>
+</div>
+
+<div id="banner"><div class="inner"><div id="bannerEyebrow"></div><div id="bannerTitle"></div><div id="bannerSub"></div></div></div>
+
+<div id="ovTitle" class="overlay">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="card">
+    <div class="kicker">a small game about petting cats</div>
+    <h1><svg class="paw" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="44" rx="16" ry="12.5" fill="currentColor"/><circle cx="13" cy="27" r="7.2" fill="currentColor"/><circle cx="25" cy="16" r="7.2" fill="currentColor"/><circle cx="39" cy="16" r="7.2" fill="currentColor"/><circle cx="51" cy="27" r="7.2" fill="currentColor"/></svg>Cat Tower</h1>
+    <p class="sub">Four floors, one roof, <b id="catTotalTxt">21 cats</b>. The house cats run away from you. The bobcats, tigers and lions run <i>at</i> you &mdash; let them pounce, then pet them while they are dizzy. Clear a floor to open the stairs, spend coins on the way up.</p>
+    <div class="keys kb">
+      <div><span class="kbd">W A S D</span> Walk where you look</div>
+      <div><span class="kbd">Mouse</span> Look around</div>
+      <div><span class="kbd">Shift</span> Run</div>
+      <div><span class="kbd">Space</span> Hop</div>
+      <div><span class="kbd">P</span> Pet the nearest cat</div>
+      <div><span class="kbd">Esc</span> Pause</div>
+    </div>
+    <div class="keys" id="touchKeys">
+      <div><span class="kbd">Stick</span> Walk where you look</div>
+      <div><span class="kbd">Drag</span> Look around</div>
+      <div><span class="kbd">PET</span> Pet the nearest cat</div>
+      <div><span class="kbd">RUN</span> Tap to run, tap to stop</div>
+    </div>
+    <div id="titleNg" class="ngbox hidden">
+      <div class="ngtop">
+        <span class="nglabel">Crowd size</span>
+        <div class="stepper">
+          <button class="sbtn" id="tnMinus">&minus;</button>
+          <span class="sval" id="tnExtra">Standard tower</span>
+          <button class="sbtn" id="tnPlus">+</button>
+        </div>
+      </div>
+      <div class="ngnote">You have cleared the tower, so you can stuff extra cats onto every floor. This climb: <b id="tnTotal">21 cats</b>.</div>
+    </div>
+    <div class="row"><button class="btn primary" id="startBtn">Start climbing</button></div>
+  </div>
+</div>
+
+<div id="ovShop" class="overlay hidden">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="card" id="shopCard">
+    <div class="shophead">
+      <div><div class="kicker" id="shopEyebrow">Floor cleared</div><h2 id="shopTitle">The Cat Vending Machine</h2></div>
+      <div class="wallet" id="shopWallet">0 coins</div>
+    </div>
+    <p class="sub" id="shopSub">Upgrades are permanent. Press a number key to buy.</p>
+    <div id="shopItems"></div>
+    <div class="row"><button class="btn primary" id="shopGo">Next floor</button><button class="btn hidden" id="shopBack">Back</button></div>
+  </div>
+</div>
+
+<div id="ovPause" class="overlay hidden">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="card">
+    <div class="kicker">paused</div>
+    <h2 id="pauseTitle">Take a breath</h2>
+    <p class="sub">The cats will wait. Mostly.</p>
+    <div class="keys kb">
+      <div><span class="kbd">P</span> Pet nearest cat</div>
+      <div><span class="kbd">Shift</span> Run</div>
+      <div><span class="kbd">Space</span> Hop</div>
+      <div><span class="kbd">M</span> Mute sound</div>
+    </div>
+    <div class="row"><button class="btn primary" id="resumeBtn">Resume</button><button class="btn" id="restartLevelBtn">Restart floor</button></div>
+  </div>
+</div>
+
+<div id="ovDead" class="overlay hidden">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="card">
+    <div class="kicker">down but not out</div>
+    <h2 id="deadTitle">A bobcat disagreed with you</h2>
+    <p class="sub">You keep your coins and your upgrades. The floor starts over.</p>
+    <div class="statgrid">
+      <div><div class="k">Petted on this floor</div><div class="v" id="deadPetted">0</div></div>
+      <div><div class="k">Coins in pocket</div><div class="v" id="deadCoins">0</div></div>
+    </div>
+    <div class="row"><button class="btn primary" id="retryBtn">Try again</button><button class="btn" id="deadShopBtn">Open shop</button></div>
+  </div>
+</div>
+
+<div id="ovWin" class="overlay airy hidden">
+  <div class="sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="card">
+    <div class="kicker">roof reached</div>
+    <h1>Every cat petted.</h1>
+    <p class="sub">Every one of them is sitting on the roof behind you. Here is the whole guest list.</p>
+    <div class="statgrid">
+      <div><div class="k">Cats petted</div><div class="v" id="winPetted">21</div></div>
+      <div><div class="k">Time taken</div><div class="v" id="winTime">0:00</div></div>
+      <div><div class="k">Coins collected</div><div class="v" id="winCoins">0</div></div>
+      <div><div class="k">Times mauled</div><div class="v" id="winDeaths">0</div></div>
+    </div>
+    <div class="pbline" id="winBest"></div>
+    <div id="winRoster"></div>
+    <div id="ngPlus" class="ngbox hidden">
+      <div class="ngtop">
+        <span class="nglabel">Add more cats?</span>
+        <div class="stepper">
+          <button class="sbtn" id="ngMinus">&minus;</button>
+          <span class="sval" id="ngExtra">Standard tower</span>
+          <button class="sbtn" id="ngPlusBtn">+</button>
+        </div>
+      </div>
+      <div class="ngnote">Extra cats are added to every floor, and the setting sticks. Next climb: <b id="ngTotal">21 cats</b>.</div>
+    </div>
+    <div class="row"><button class="btn primary" id="moreCatsBtn">Climb again with MORE CATS</button><button class="btn" id="againBtn">Same again</button></div>
+  </div>
+</div>
